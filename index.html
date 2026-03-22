@@ -303,30 +303,60 @@ function copyImage(idx) {
   var status = document.getElementById('status-' + idx);
   btn.textContent = '복사 중...';
 
-  fetch('/copy-image/' + idx, { method: 'POST' })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.ok) {
-        btn.textContent = '복사 완료!';
-        btn.classList.add('copied');
-        status.textContent = '네이버 에디터에서 Cmd+V 하세요';
-        status.style.color = '#2DB400';
-        setTimeout(function() {
-          btn.textContent = '클립보드에 복사';
-          btn.classList.remove('copied');
-          status.textContent = '';
-        }, 5000);
-      } else {
-        btn.textContent = '실패 - 다시 시도';
-        status.textContent = data.error || '오류 발생';
-        status.style.color = 'red';
-      }
-    })
-    .catch(function(err) {
-      btn.textContent = '실패 - 다시 시도';
-      status.textContent = '서버 연결 오류';
-      status.style.color = 'red';
-    });
+  // 로컬 서버가 있으면 서버 경유, 없으면 클라이언트 사이드 복사
+  var img = document.querySelector('#img-block-' + idx + ' img');
+  var canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  canvas.toBlob(function(blob) {
+    if (navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        .then(function() {
+          btn.textContent = '복사 완료!';
+          btn.classList.add('copied');
+          status.textContent = '네이버 에디터에서 Cmd+V 하세요';
+          status.style.color = '#2DB400';
+          setTimeout(function() {
+            btn.textContent = '클립보드에 복사';
+            btn.classList.remove('copied');
+            status.textContent = '';
+          }, 5000);
+        })
+        .catch(function(err) {
+          // 클라이언트 복사 실패 시 서버 경유 시도
+          fetch('/copy-image/' + idx, { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.ok) {
+                btn.textContent = '복사 완료!';
+                btn.classList.add('copied');
+                status.textContent = '네이버 에디터에서 Cmd+V 하세요';
+                status.style.color = '#2DB400';
+                setTimeout(function() {
+                  btn.textContent = '클립보드에 복사';
+                  btn.classList.remove('copied');
+                  status.textContent = '';
+                }, 5000);
+              } else {
+                btn.textContent = '실패 - 다시 시도';
+                status.textContent = '이미지를 길게 눌러 저장하세요';
+                status.style.color = '#e67e22';
+              }
+            })
+            .catch(function() {
+              btn.textContent = '길게 눌러 저장';
+              status.textContent = '이미지를 길게 눌러 저장하세요';
+              status.style.color = '#e67e22';
+            });
+        });
+    } else {
+      btn.textContent = '길게 눌러 저장';
+      status.textContent = '이미지를 길게 눌러 저장하세요';
+      status.style.color = '#e67e22';
+    }
+  }, 'image/png');
 }
 </script>
 </body>
